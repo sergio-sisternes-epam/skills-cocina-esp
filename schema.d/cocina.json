@@ -1,0 +1,190 @@
+{
+  "contribution_id": "cocina",
+  "claimed_folders": [
+    "recetas",
+    "ingredientes",
+    "utensilios",
+    "personas",
+    "inventario",
+    "sustituciones"
+  ],
+  "templates": {
+    "by_type": {
+      "ingredient": {
+        "file": "templates/ingredient.md",
+        "frontmatter": {
+          "required": [
+            "type",
+            "title",
+            "created",
+            "canonical_name",
+            "category"
+          ],
+          "recommended": [
+            "synonyms",
+            "valid_units",
+            "allergens",
+            "origin",
+            "sensitivity"
+          ]
+        },
+        "sections": {
+          "required": [
+            "Identidad",
+            "Unidades"
+          ],
+          "recommended": [
+            "Al\u00e9rgenos",
+            "Sustituciones",
+            "Relacionado"
+          ]
+        }
+      },
+      "utensil": {
+        "file": "templates/utensil.md",
+        "frontmatter": {
+          "required": [
+            "type",
+            "title",
+            "created",
+            "category"
+          ],
+          "recommended": [
+            "availability",
+            "capacity",
+            "origin",
+            "sensitivity"
+          ]
+        },
+        "sections": {
+          "required": [
+            "Identidad",
+            "Capacidades"
+          ],
+          "recommended": [
+            "Sustitutos",
+            "Relacionado"
+          ]
+        }
+      },
+      "person": {
+        "file": "templates/person.md",
+        "frontmatter": {
+          "required": [
+            "type",
+            "title",
+            "created"
+          ],
+          "recommended": [
+            "preferences",
+            "aversions",
+            "allergens",
+            "severity",
+            "origin",
+            "sensitivity"
+          ]
+        },
+        "sections": {
+          "required": [
+            "Perfil"
+          ],
+          "recommended": [
+            "Restricciones",
+            "Preferencias",
+            "Relacionado"
+          ]
+        }
+      },
+      "inventory-item": {
+        "file": "templates/inventory-item.md",
+        "frontmatter": {
+          "required": [
+            "type",
+            "title",
+            "created",
+            "ingredient_ref",
+            "quantity",
+            "unit"
+          ],
+          "recommended": [
+            "location",
+            "purchased_at",
+            "prepared_at",
+            "expires_at",
+            "best_before",
+            "origin",
+            "sensitivity"
+          ]
+        },
+        "sections": {
+          "required": [
+            "Existencias"
+          ],
+          "recommended": [
+            "Fechas",
+            "Procedencia",
+            "Relacionado"
+          ]
+        }
+      },
+      "inventory-event": {
+        "file": "templates/inventory-event.md",
+        "frontmatter": {
+          "required": [
+            "type",
+            "title",
+            "created",
+            "event_type",
+            "occurred_at"
+          ],
+          "recommended": [
+            "quantity",
+            "unit",
+            "inventory_refs",
+            "source_ref",
+            "origin",
+            "sensitivity"
+          ]
+        },
+        "sections": {
+          "required": [
+            "Evento"
+          ],
+          "recommended": [
+            "Efecto",
+            "Relacionado"
+          ]
+        }
+      },
+      "substitution": {
+        "file": "templates/substitution.md",
+        "frontmatter": {
+          "required": [
+            "type",
+            "title",
+            "created",
+            "required_ingredient",
+            "alternative_ingredient"
+          ],
+          "recommended": [
+            "ratio",
+            "conditions",
+            "effect",
+            "origin",
+            "sensitivity"
+          ]
+        },
+        "sections": {
+          "required": [
+            "Sustituci\u00f3n"
+          ],
+          "recommended": [
+            "Condiciones",
+            "Efecto",
+            "Relacionado"
+          ]
+        }
+      }
+    }
+  }
+}
