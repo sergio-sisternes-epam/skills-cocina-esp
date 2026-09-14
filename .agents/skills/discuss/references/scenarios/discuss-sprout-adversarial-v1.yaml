@@ -1,0 +1,21 @@
+id: discuss-sprout-adversarial-v1
+work_id: 2026-08-26-discuss-sprout-leaves
+adversarial: true
+packages:
+  - discuss
+smokes:
+  - id: leaf-flood
+    source: "Counter 1"
+    expect: "paths/sprout.md forbids a protostar per utterance; batch first; persist only if still pending at end of turn"
+  - id: orphan-leaf
+    source: "User origin rule"
+    expect: "sprout requires origin_node and relates_to derived_from that conversation node"
+  - id: leaf-is-implement
+    source: "Counter 5"
+    expect: "protostar and star_kind action do not grant implement authority"
+  - id: catalog-not-enough
+    source: "Core discipline"
+    expect: "A surviving pending parked only as a catalog bullet is incomplete; sprout writes a protostar page"
+  - id: missing-kva
+    source: "KVA pin"
+    expect: "New protostar records kva: forming at birth"
