@@ -1,0 +1,15 @@
+{
+  "id": "cocina",
+  "written": [
+    "schema.d/cocina.json",
+    "schema.d/cocina.receipt.json"
+  ],
+  "added_types": [
+    "ingredient",
+    "inventory-event",
+    "inventory-item",
+    "person",
+    "substitution",
+    "utensil"
+  ]
+}
