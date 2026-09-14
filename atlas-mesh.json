@@ -6,11 +6,6 @@
       "ref": "atlas",
       "path": ".atlas/github.com/sergio-sisternes-epam/skills-cocina-esp",
       "strategy": "shared"
-    },
-    {
-      "id": "github.com/sergio-sisternes-epam/discuss-atlas",
-      "ref": "main",
-      "path": ".atlas/github.com/sergio-sisternes-epam/discuss-atlas"
     }
   ]
 }
