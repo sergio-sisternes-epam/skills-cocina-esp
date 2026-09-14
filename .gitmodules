@@ -1,0 +1,8 @@
+[submodule ".atlas/github.com/sergio-sisternes-epam/skills-cocina-esp"]
+	path = .atlas/github.com/sergio-sisternes-epam/skills-cocina-esp
+	url = https://github.com/sergio-sisternes-epam/skills-cocina-esp.git
+	branch = atlas
+[submodule ".atlas/github.com/sergio-sisternes-epam/discuss-atlas"]
+	path = .atlas/github.com/sergio-sisternes-epam/discuss-atlas
+	url = https://github.com/sergio-sisternes-epam/discuss-atlas.git
+	branch = main

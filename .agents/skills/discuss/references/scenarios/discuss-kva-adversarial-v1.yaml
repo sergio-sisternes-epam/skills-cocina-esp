@@ -1,0 +1,30 @@
+id: discuss-kva-adversarial-v1
+work_id: 2026-08-26-kva-protostar-tighten
+adversarial: true
+packages:
+  - discuss
+smokes:
+  - id: sixth-expand-state
+    source: "kva-tighten/no-sixth-expand.md"
+    expect: "SKILL and SCHEMA list exactly five kva values; expand is not one of them"
+  - id: reason-string-on-subject
+    source: "user pin P7"
+    expect: "no kva_reason field in SCHEMA or templates; lint does not treat a body heading as the exit edge"
+  - id: missing-exit-edge
+    source: "IESG Historic without why / P5"
+    expect: "lint L4 red when deprecated|superseded|terminated lacks matching kva_* edge"
+  - id: unmute-in-place
+    source: "git restore is a new ref / P8"
+    expect: "SKILL forbids flipping terminated|deprecated|superseded to forming on the same path"
+  - id: growth-lie
+    source: "KCS archive leaves default search / P9"
+    expect: "lint L5 red when growth true and kva is not forming"
+  - id: catalog-reason-hub
+    source: "L1 + user same-event fan-in"
+    expect: "a generic reasons/open catalog that many unrelated exits point at fails L1"
+  - id: enum-unknown-after-migrate
+    source: "GraphQL/Avro enum evolution — old symbols break readers"
+    expect: "implement Run leaves zero legacy kva symbols on discuss Atlas pages"
+  - id: leaf-is-implement
+    source: "discuss-sprout-adversarial leaf-is-implement"
+    expect: "final node and forming protostar still grant zero implement authority"

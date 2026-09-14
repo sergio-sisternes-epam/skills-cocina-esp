@@ -1,0 +1,17 @@
+name: sergio-sisternes-epam-effective-spoon
+version: 1.0.0
+description: APM project for sergio-sisternes-epam-effective-spoon
+author: Developer
+# Which agent platforms to deploy to.
+# Resolution order: --target flag > this field > auto-detect from filesystem.
+# Accepted values: agent-skills, antigravity, claude, codex, copilot, cursor, gemini, grok-build, hermes, kiro, opencode, vscode, windsurf
+targets:
+  - copilot
+dependencies:
+  apm:
+    - sergio-sisternes-epam/atlas#v0.12.0
+    - sergio-sisternes-epam/discuss#v0.4.0
+    - sergio-sisternes-epam/atlas-cartograph#v0.4.2
+  mcp: []
+includes: auto
+scripts: {}

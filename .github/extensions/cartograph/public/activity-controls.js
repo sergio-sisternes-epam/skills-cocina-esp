@@ -1,0 +1,307 @@
+import { DEFAULT_ACTIVITY_DURATION_MS } from "./activity-rendering.js";
+import { ACTIVITY_SPACING_MS, MIN_ACTIVITY_SPACING_MS } from "./activity-playback.js";
+
+export function playbackStatus(playback) {
+  const pending = playback?.pendingCount ?? 0;
+  const lag = (playback?.oldestPendingMs ?? 0) / 1000;
+  const spacing = Math.round(playback?.spacingMs ?? ACTIVITY_SPACING_MS);
+  return {
+    status: pending > 40 || lag >= 5 ? "overloaded" : pending > 5 || lag >= 2 ? "catching-up" : "normal",
+    summary: pending ? `${pending} queued · ${lag.toFixed(1)}s lag · ${spacing} ms` : `${spacing} ms`,
+    detail: `${pending} queued · ${lag.toFixed(1)}s lag · ${spacing} ms spacing. ` +
+      `${playback?.aggregatedCount ?? 0} merged · ${playback?.cancelledCount ?? 0} cancelled. ` +
+      "Received observations, not read syscalls. Capture loss is unknown; collector errors are shown separately.",
+  };
+}
+
+export function activityStatus(activity, connected = true) {
+  if (activity?.enabled === false) return { label: "Off", status: "paused", message: "Activity highlighting is off." };
+  if (!connected) return { label: "Disconnected", status: "disconnected", message: "Canvas connection lost. Reconnecting…" };
+  const status = activity?.collector?.status || "waiting";
+  const labels = { live: "Live", waiting: "Waiting", disconnected: "Disconnected", error: "Error", unsupported: "Unsupported", paused: "Off" };
+  return {
+    status, label: labels[status] || "Waiting",
+    message: activity?.collector?.message || "Waiting for a collector. Open Collector setup to connect.",
+  };
+}
+
+export function activityDuration(seconds) {
+  const durationMs = Math.round(Number(seconds) * 1000);
+  if (!Number.isFinite(durationMs) || durationMs < 100 || durationMs > 300000) {
+    throw new Error("Highlight duration must be between 0.1 and 300 seconds.");
+  }
+  return durationMs;
+}
+
+export function activityScopeLabel(scope) {
+  if (scope?.mode === "session") {
+    return `Scope: this Copilot session (PID ${scope.rootPid}) and its tool processes. Cartograph and its child processes are excluded.`;
+  }
+  if (scope?.mode === "all") return "Scope: all applications, excluding Cartograph.";
+  return "Waiting for process-scope information.";
+}
+
+export async function requestActivity(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    cache: "no-store",
+    headers: { "X-Cartograph-Client": "canvas", ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers },
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(body?.error || body?.message || `Activity request failed (${response.status}).`);
+  if (!body) throw new Error("Invalid activity response from the server.");
+  return body;
+}
+
+export function mountActivityControls(root, onActivity, onAutoFocus = () => {}) {
+  const get = (id) => root.querySelector(`#${id}`);
+  const enabled = get("activity-enabled");
+  const autoFocus = get("activity-auto-focus");
+  autoFocus.checked = true;
+  autoFocus.addEventListener("change", () => {
+    onAutoFocus(autoFocus.checked);
+    renderCamera();
+  });
+  const duration = get("activity-duration");
+  const save = get("activity-save");
+  const cancel = get("activity-cancel");
+  const durationStatus = get("activity-duration-status");
+  const configError = get("activity-config-error");
+  const connectionError = get("activity-connection-error");
+  const connectionStatus = get("activity-connection-status");
+  const command = get("activity-command");
+  const retry = get("activity-retry");
+  const setupPanel = get("activity-setup");
+  get("activity-spacing").textContent = `Playback adapts from ${ACTIVITY_SPACING_MS} to ${MIN_ACTIVITY_SPACING_MS} ms as the queue grows. Only animation is paced; file reads are never delayed.`;
+  let activity;
+  let connected = true;
+  let saving = false;
+  let savingDuration = false;
+  let durationDirty = false;
+  let reducedMotion = false;
+  let connectionRequest;
+  let providerKey;
+  let playback;
+  let playbackKey;
+
+  function renderPlayback() {
+    const status = playbackStatus(playback);
+    get("activity-playback-status").textContent = status.summary;
+    get("activity-playback-status").dataset.status = status.status;
+    get("activity-playback-status").setAttribute("aria-label",
+      `Playback pace: ${status.summary}. Time between displayed activations, not collection latency.`);
+    get("activity-playback-detail").textContent = status.detail;
+    get("activity-playback-counts").textContent = `${playback?.aggregatedCount ?? 0} merged · ${playback?.cancelledCount ?? 0} cancelled`;
+    const repeats = [
+      ...(playback?.repeatedNodes ?? []).map((entry) => ({ ...entry, kind: "node" })),
+      ...(playback?.repeatedEdges ?? []).map((entry) => ({ ...entry, kind: "edge" })),
+    ];
+    const key = JSON.stringify(repeats);
+    if (key === playbackKey) return;
+    playbackKey = key;
+    get("activity-repeat-counts").replaceChildren(...repeats.slice(0, 8).map((entry) => {
+      const item = document.createElement("li");
+      item.textContent = entry.kind === "edge"
+        ? `${entry.count} traversals; latest direction: ${entry.label || entry.id}`
+        : `${entry.label || entry.id}: ${entry.count} observations`;
+      return item;
+    }));
+    get("activity-repeat-more").textContent = repeats.length > 8 ? `${repeats.length - 8} more repeated items highlighted.` : "";
+  }
+
+  function renderProvider() {
+    const provider = activity?.provider;
+    const nextKey = JSON.stringify(provider ?? null);
+    if (providerKey === nextKey) return;
+    providerKey = nextKey;
+    const text = (value, fallback = "") => typeof value === "string" ? value : fallback;
+    const setup = provider?.setup;
+    get("activity-provider-label").textContent = text(provider?.label);
+    get("activity-provider-label").classList.toggle("hidden", !provider?.label);
+    const permissions = Array.isArray(provider?.permissions)
+      ? provider.permissions.filter(value => typeof value === "string").map(value => value.replaceAll("-", " ")) : [];
+    get("activity-permissions").textContent = permissions.length ? `Permissions: ${permissions.join(" · ")}` : "";
+    get("activity-permissions").classList.toggle("hidden", !permissions.length);
+    get("activity-setup-title").textContent = text(setup?.title, "Activity provider setup");
+    get("activity-setup-description").textContent = text(setup?.description, text(provider?.description, "Waiting for provider setup information."));
+    const steps = Array.isArray(setup?.steps) ? setup.steps.filter((step) => typeof step === "string") : [];
+    get("activity-setup-steps").replaceChildren(...steps.map((step) => {
+      const item = document.createElement("li");
+      item.textContent = step;
+      return item;
+    }));
+    const notice = text(setup?.notice, "Connection details are private. Do not share them.");
+    get("activity-setup-notice").textContent = notice;
+    get("activity-setup-notice").classList.toggle("hidden", !notice);
+    const diagnostics = text(setup?.diagnostics);
+    get("activity-provider-diagnostics").textContent = diagnostics;
+    get("activity-provider-diagnostics").classList.toggle("hidden", !diagnostics);
+  }
+
+  function renderCamera() {
+    const paused = reducedMotion && autoFocus.checked;
+    const message = paused ? "Paused by reduced motion" : "";
+    const status = get("activity-camera-status");
+    if (status.textContent !== message) status.textContent = message;
+    status.classList.toggle("hidden", !paused);
+  }
+
+  function renderDuration() {
+    duration.disabled = saving;
+    save.disabled = saving || !durationDirty;
+    cancel.disabled = saving || !durationDirty;
+    save.textContent = savingDuration ? "Saving…" : "Save";
+    const message = savingDuration ? "Saving…" : durationDirty ? "Unsaved changes" : "Saved";
+    if (durationStatus.textContent !== message) durationStatus.textContent = message;
+    if (!durationDirty && document.activeElement !== duration) {
+      duration.value = String((activity?.durationMs ?? DEFAULT_ACTIVITY_DURATION_MS) / 1000);
+    }
+  }
+
+  function render() {
+    renderProvider();
+    renderPlayback();
+    const status = activityStatus(activity, connected);
+    root.dataset.status = status.status;
+    get("activity-status").textContent = status.label;
+    const collector = activityStatus({ collector: activity?.collector }, connected);
+    get("activity-collector-state").textContent = collector.label;
+    get("activity-message").textContent = collector.message;
+    error(get("activity-collector-error"), ["error", "disconnected", "unsupported"].includes(collector.status) ? collector.message : "");
+    get("activity-connect").classList.toggle("hidden",
+      !connected || !["waiting", "disconnected", "error"].includes(collector.status));
+    get("activity-scope").textContent = activityScopeLabel(activity?.scope);
+    get("activity-scope-label").textContent = activity?.scope?.mode === "session" ? "This session"
+      : activity?.scope?.mode === "all" ? "All applications" : "Unavailable";
+    enabled.checked = activity?.enabled !== false;
+    enabled.disabled = saving;
+    renderDuration();
+    renderCamera();
+  }
+
+  function error(el, message = "") {
+    el.textContent = message;
+    el.classList.toggle("hidden", !message);
+  }
+
+  async function configure(next, saveDuration = false) {
+    if (saving) return;
+    saving = true;
+    savingDuration = saveDuration;
+    error(configError);
+    render();
+    try {
+      const result = await requestActivity("/api/activity/config", { method: "POST", body: JSON.stringify(next) });
+      activity = result;
+      if (saveDuration) durationDirty = false;
+      onActivity(result);
+      if (saveDuration) duration.value = String(activity.durationMs / 1000);
+    } catch (err) {
+      error(configError, `Settings were not saved. ${err.message}`);
+    } finally {
+      saving = false;
+      savingDuration = false;
+      render();
+    }
+  }
+
+  async function loadConnection() {
+    if (!root.open || !setupPanel.open) return;
+    connectionRequest?.abort();
+    const request = new AbortController();
+    connectionRequest = request;
+    command.textContent = "";
+    get("activity-command-wrap").classList.add("hidden");
+    connectionStatus.textContent = "";
+    connectionStatus.classList.add("hidden");
+    retry.disabled = true;
+    retry.textContent = "Loading connection…";
+    error(connectionError);
+    try {
+      const result = await requestActivity("/api/activity/connection", { signal: request.signal });
+      if (request.signal.aborted || !root.open || !setupPanel.open) return;
+      if (result.command === null) {
+        connectionStatus.textContent = "No terminal command needed.";
+        connectionStatus.classList.remove("hidden");
+      } else {
+        if (typeof result.command !== "string" || !result.command.trim()) throw new Error("The server did not return a valid activity command.");
+        command.textContent = result.command;
+        get("activity-command-wrap").classList.remove("hidden");
+      }
+    } catch (err) {
+      if (!request.signal.aborted) error(connectionError, `Could not load the activity connection. ${err.message}`);
+    } finally {
+      if (connectionRequest === request) {
+        retry.disabled = false;
+        retry.textContent = "Refresh connection";
+      }
+    }
+  }
+
+  enabled.addEventListener("change", () => configure({
+    enabled: enabled.checked, durationMs: activity?.durationMs ?? DEFAULT_ACTIVITY_DURATION_MS,
+  }));
+  duration.addEventListener("input", () => {
+    durationDirty = duration.value !== String((activity?.durationMs ?? DEFAULT_ACTIVITY_DURATION_MS) / 1000);
+    renderDuration();
+  });
+  cancel.addEventListener("click", () => {
+    durationDirty = false;
+    error(configError);
+    duration.value = String((activity?.durationMs ?? DEFAULT_ACTIVITY_DURATION_MS) / 1000);
+    renderDuration();
+    duration.focus({ preventScroll: true });
+  });
+  get("activity-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    try {
+      configure({ enabled: activity?.enabled !== false, durationMs: activityDuration(duration.value) }, true);
+    } catch (err) {
+      error(configError, err.message);
+    }
+  });
+  function clearConnection() {
+    connectionRequest?.abort();
+    command.textContent = "";
+    get("activity-command-wrap").classList.add("hidden");
+    connectionStatus.textContent = "";
+    connectionStatus.classList.add("hidden");
+  }
+  function close() {
+    root.open = false;
+    setupPanel.open = false;
+    clearConnection();
+    get("activity-summary").focus({ preventScroll: true });
+  }
+  root.addEventListener("toggle", (event) => {
+    if (event.target && event.target !== root) return;
+    if (!root.open) {
+      setupPanel.open = false;
+      clearConnection();
+    }
+  });
+  setupPanel.addEventListener("toggle", () => {
+    if (setupPanel.open) loadConnection();
+    else clearConnection();
+  });
+  get("activity-connect").addEventListener("click", () => {
+    setupPanel.open = true;
+    get("activity-setup-summary").focus();
+  });
+  get("activity-close").addEventListener("click", close);
+  root.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+  });
+  retry.addEventListener("click", loadConnection);
+  render();
+  return {
+    autoFocusEnabled: () => autoFocus.checked,
+    setReducedMotion(next) { reducedMotion = next; renderCamera(); },
+    setActivity(next) { activity = next; if (next?.enabled === false) playback = null; render(); },
+    setPlayback(next) { playback = next; renderPlayback(); },
+    setConnected(next) { connected = next; render(); },
+  };
+}
